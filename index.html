@@ -1,1 +1,682 @@
-<h1> My exchange </h1>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GB Intraday Trader Tool</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    body {
+      margin: 0;
+      background: #0f172a;
+      color: #e2e8f0;
+    }
+
+    header {
+      padding: 24px 32px;
+      background: #111827;
+      border-bottom: 1px solid #1f2937;
+    }
+
+    header h1 {
+      margin: 0 0 8px;
+      font-size: 24px;
+    }
+
+    header p {
+      margin: 0;
+      color: #cbd5f5;
+    }
+
+    main {
+      padding: 24px 32px 40px;
+      display: grid;
+      gap: 24px;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    }
+
+    section {
+      background: #111827;
+      border: 1px solid #1f2937;
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 10px 30px rgba(15, 23, 42, 0.3);
+    }
+
+    h2 {
+      margin-top: 0;
+      font-size: 18px;
+    }
+
+    label {
+      display: block;
+      font-size: 13px;
+      margin-bottom: 6px;
+      color: #cbd5f5;
+    }
+
+    input, select, textarea {
+      width: 100%;
+      padding: 10px 12px;
+      border-radius: 8px;
+      border: 1px solid #334155;
+      background: #0f172a;
+      color: #e2e8f0;
+      margin-bottom: 12px;
+      font-size: 14px;
+    }
+
+    button {
+      background: #2563eb;
+      color: white;
+      border: none;
+      padding: 10px 16px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: background 0.2s ease;
+    }
+
+    button.secondary {
+      background: #475569;
+    }
+
+    button:disabled {
+      background: #1e293b;
+      cursor: not-allowed;
+    }
+
+    .grid {
+      display: grid;
+      gap: 12px;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .actions .secondary {
+      background: #475569;
+    }
+
+    .status {
+      font-size: 13px;
+      color: #94a3b8;
+      min-height: 20px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    th, td {
+      text-align: left;
+      padding: 8px;
+      border-bottom: 1px solid #1f2937;
+    }
+
+    th {
+      color: #cbd5f5;
+    }
+
+    .diff-positive {
+      color: #4ade80;
+    }
+
+    .diff-negative {
+      color: #f87171;
+    }
+
+    .history-item {
+      padding: 8px 10px;
+      border-radius: 8px;
+      border: 1px solid #1f2937;
+      margin-bottom: 8px;
+      cursor: pointer;
+    }
+
+    .history-item.active {
+      border-color: #38bdf8;
+      background: rgba(56, 189, 248, 0.1);
+    }
+
+    .pill {
+      display: inline-block;
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: #1e293b;
+      margin-left: 8px;
+    }
+
+    .json-preview {
+      background: #0f172a;
+      border-radius: 8px;
+      padding: 10px;
+      border: 1px solid #1f2937;
+      max-height: 220px;
+      overflow: auto;
+      font-size: 12px;
+      white-space: pre-wrap;
+    }
+
+    .chart-card {
+      margin-top: 12px;
+      padding: 12px;
+      border-radius: 10px;
+      border: 1px solid #1f2937;
+      background: #0b1220;
+    }
+
+    canvas {
+      max-width: 100%;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>GB Intraday Trading Helper</h1>
+    <p>Pull Enappsys NDF &amp; INDGEN forecasts/outturns, track history, and inspect revisions.</p>
+  </header>
+  <main>
+    <section>
+      <h2>Connection &amp; Endpoints</h2>
+      <label for="apiKey">Enappsys API key</label>
+      <input id="apiKey" type="password" placeholder="Paste API key" autocomplete="off" />
+
+      <div class="grid">
+        <div>
+          <label for="ndfForecastUrl">NDF forecast URL</label>
+          <input id="ndfForecastUrl" type="text" placeholder="https://.../ndf/forecast" />
+        </div>
+        <div>
+          <label for="indgenForecastUrl">INDGEN forecast URL</label>
+          <input id="indgenForecastUrl" type="text" placeholder="https://.../indgen/forecast" />
+        </div>
+        <div>
+          <label for="ndfOutturnUrl">NDF outturn URL</label>
+          <input id="ndfOutturnUrl" type="text" placeholder="https://.../ndf/outturn" />
+        </div>
+        <div>
+          <label for="indgenOutturnUrl">INDGEN outturn URL</label>
+          <input id="indgenOutturnUrl" type="text" placeholder="https://.../indgen/outturn" />
+        </div>
+      </div>
+
+      <label for="extraHeaders">Optional headers (JSON)</label>
+      <textarea id="extraHeaders" rows="3" placeholder='{"X-Region":"GB"}'></textarea>
+      <p class="status">
+        Tip: Enappsys can return CSV. This tool auto-parses CSV time/value rows. Keep credentials in
+        the query string or headers out of shared builds for production.
+      </p>
+
+      <div class="actions">
+        <button id="saveConfig">Save configuration</button>
+        <button id="clearHistory" class="secondary">Clear history</button>
+      </div>
+      <p class="status" id="configStatus"></p>
+    </section>
+
+    <section>
+      <h2>Fetch latest data</h2>
+      <div class="actions">
+        <button data-type="ndf-forecast">Fetch NDF Forecast</button>
+        <button data-type="indgen-forecast">Fetch INDGEN Forecast</button>
+        <button data-type="ndf-outturn">Fetch NDF Outturn</button>
+        <button data-type="indgen-outturn">Fetch INDGEN Outturn</button>
+        <button id="loadSample" class="secondary">Load sample data</button>
+      </div>
+      <p class="status" id="fetchStatus">Waiting for a request.</p>
+      <p class="status" id="fetchHints"></p>
+
+      <h3>Latest snapshot</h3>
+      <div id="latestMeta" class="status"></div>
+      <div id="latestTable"></div>
+      <div class="chart-card">
+        <canvas id="latestChart" height="120"></canvas>
+      </div>
+      <h4>Raw response</h4>
+      <div id="latestRaw" class="json-preview">No data loaded yet.</div>
+    </section>
+
+    <section>
+      <h2>History &amp; Revision Diff</h2>
+      <p class="status">Select a stored snapshot to compare against the previous update of the same type.</p>
+      <div id="historyList"></div>
+      <div id="diffMeta" class="status"></div>
+      <div id="diffTable"></div>
+    </section>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script>
+    const storageKeys = {
+      config: "gb-intraday-config",
+      history: "gb-intraday-history",
+    };
+
+    const defaultConfig = {
+      apiKey: "",
+      ndfForecastUrl: "",
+      indgenForecastUrl: "",
+      ndfOutturnUrl: "",
+      indgenOutturnUrl: "",
+      extraHeaders: "",
+    };
+
+    const configInputs = {
+      apiKey: document.getElementById("apiKey"),
+      ndfForecastUrl: document.getElementById("ndfForecastUrl"),
+      indgenForecastUrl: document.getElementById("indgenForecastUrl"),
+      ndfOutturnUrl: document.getElementById("ndfOutturnUrl"),
+      indgenOutturnUrl: document.getElementById("indgenOutturnUrl"),
+      extraHeaders: document.getElementById("extraHeaders"),
+    };
+
+    const historyList = document.getElementById("historyList");
+    const latestTable = document.getElementById("latestTable");
+    const latestRaw = document.getElementById("latestRaw");
+    const latestMeta = document.getElementById("latestMeta");
+    const latestChartCanvas = document.getElementById("latestChart");
+    const diffTable = document.getElementById("diffTable");
+    const diffMeta = document.getElementById("diffMeta");
+    const fetchStatus = document.getElementById("fetchStatus");
+    const fetchHints = document.getElementById("fetchHints");
+    const configStatus = document.getElementById("configStatus");
+
+    const history = loadHistory();
+    let latestChart;
+    const sampleSeries = Array.from({ length: 24 }, (_, index) => ({
+      time: `2026-02-06 ${String(index).padStart(2, "0")}:00`,
+      value: 21000 + Math.sin(index / 3) * 800 + index * 15,
+    }));
+
+    function loadConfig() {
+      const stored = localStorage.getItem(storageKeys.config);
+      return stored ? { ...defaultConfig, ...JSON.parse(stored) } : { ...defaultConfig };
+    }
+
+    function saveConfig(config) {
+      localStorage.setItem(storageKeys.config, JSON.stringify(config));
+    }
+
+    function loadHistory() {
+      const stored = localStorage.getItem(storageKeys.history);
+      return stored ? JSON.parse(stored) : [];
+    }
+
+    function saveHistory(items) {
+      localStorage.setItem(storageKeys.history, JSON.stringify(items));
+    }
+
+    function updateConfigInputs() {
+      const config = loadConfig();
+      Object.entries(configInputs).forEach(([key, input]) => {
+        input.value = config[key] || "";
+      });
+    }
+
+    function getConfigFromInputs() {
+      const config = {};
+      Object.entries(configInputs).forEach(([key, input]) => {
+        config[key] = input.value.trim();
+      });
+      return config;
+    }
+
+    function getUrlForType(type, config) {
+      const mapping = {
+        "ndf-forecast": config.ndfForecastUrl,
+        "indgen-forecast": config.indgenForecastUrl,
+        "ndf-outturn": config.ndfOutturnUrl,
+        "indgen-outturn": config.indgenOutturnUrl,
+      };
+      return mapping[type];
+    }
+
+    function parseHeaders(extraHeaders, apiKey) {
+      const headers = {
+        "Content-Type": "application/json",
+      };
+      if (apiKey) {
+        headers.Authorization = `Bearer ${apiKey}`;
+      }
+      if (!extraHeaders) {
+        return headers;
+      }
+      try {
+        const parsed = JSON.parse(extraHeaders);
+        return { ...headers, ...parsed };
+      } catch (error) {
+        throw new Error("Optional headers JSON is invalid.");
+      }
+    }
+
+    function parseCsvSeries(text) {
+      const lines = text.trim().split(/\r?\n/);
+      if (lines.length < 2) {
+        return [];
+      }
+      const rows = lines.slice(1);
+      return rows
+        .map((line) => line.split(","))
+        .map((columns) => {
+          const time = columns[0]?.trim();
+          const value = Number(columns[1]);
+          return {
+            time,
+            value,
+          };
+        })
+        .filter((point) => point.time && Number.isFinite(point.value));
+    }
+
+    function normalizeSeries(payload) {
+      if (typeof payload === "string") {
+        return parseCsvSeries(payload);
+      }
+      const raw = payload?.data ?? payload?.values ?? payload?.results ?? payload;
+      if (!Array.isArray(raw)) {
+        return [];
+      }
+      return raw
+        .map((point) => {
+          if (Array.isArray(point)) {
+            return { time: point[0], value: Number(point[1]) };
+          }
+          return {
+            time: point.timestamp || point.time || point.dateTime || point.date || point.interval,
+            value: Number(point.value ?? point.actual ?? point.forecast ?? point.amount),
+          };
+        })
+        .filter((point) => point.time && Number.isFinite(point.value));
+    }
+
+    function renderTable(container, series) {
+      if (!series.length) {
+        container.innerHTML = "<p class=\"status\">No normalized time series found.</p>";
+        return;
+      }
+      const rows = series
+        .slice(0, 48)
+        .map((point) => `<tr><td>${point.time}</td><td>${point.value.toFixed(2)}</td></tr>`)
+        .join("");
+      container.innerHTML = `
+        <table>
+          <thead>
+            <tr>
+              <th>Time</th>
+              <th>Value</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      `;
+    }
+
+    function renderChart(series) {
+      if (!latestChartCanvas) {
+        return;
+      }
+      if (latestChart) {
+        latestChart.destroy();
+      }
+      if (!series.length) {
+        return;
+      }
+      const trimmed = series.slice(0, 96);
+      latestChart = new Chart(latestChartCanvas, {
+        type: "line",
+        data: {
+          labels: trimmed.map((point) => point.time),
+          datasets: [
+            {
+              label: "Value",
+              data: trimmed.map((point) => point.value),
+              borderColor: "#38bdf8",
+              backgroundColor: "rgba(56, 189, 248, 0.2)",
+              borderWidth: 2,
+              pointRadius: 1,
+              tension: 0.2,
+            },
+          ],
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: {
+              labels: {
+                color: "#cbd5f5",
+              },
+            },
+          },
+          scales: {
+            x: {
+              ticks: {
+                color: "#94a3b8",
+                maxTicksLimit: 8,
+              },
+            },
+            y: {
+              ticks: {
+                color: "#94a3b8",
+              },
+              grid: {
+                color: "rgba(148, 163, 184, 0.1)",
+              },
+            },
+          },
+        },
+      });
+    }
+
+    function renderDiff(current, previous) {
+      diffTable.innerHTML = "";
+      if (!current?.series?.length || !previous?.series?.length) {
+        diffTable.innerHTML = "<p class=\"status\">Need two snapshots with time series data to compare.</p>";
+        return;
+      }
+      const prevMap = new Map(previous.series.map((point) => [String(point.time), point.value]));
+      const rows = current.series
+        .map((point) => {
+          const prevValue = prevMap.get(String(point.time));
+          if (prevValue === undefined) {
+            return null;
+          }
+          const diff = point.value - prevValue;
+          const diffClass = diff > 0 ? "diff-positive" : diff < 0 ? "diff-negative" : "";
+          return `<tr><td>${point.time}</td><td>${prevValue.toFixed(2)}</td><td>${point.value.toFixed(2)}</td><td class=\"${diffClass}\">${diff.toFixed(2)}</td></tr>`;
+        })
+        .filter(Boolean)
+        .slice(0, 48)
+        .join("");
+
+      diffTable.innerHTML = `
+        <table>
+          <thead>
+            <tr>
+              <th>Time</th>
+              <th>Previous</th>
+              <th>Current</th>
+              <th>Δ</th>
+            </tr>
+          </thead>
+          <tbody>${rows || "<tr><td colspan=\"4\">No matching timestamps to diff.</td></tr>"}</tbody>
+        </table>
+      `;
+    }
+
+    function renderHistory(activeId = null) {
+      if (!history.length) {
+        historyList.innerHTML = "<p class=\"status\">No snapshots stored yet.</p>";
+        return;
+      }
+      historyList.innerHTML = history
+        .slice()
+        .reverse()
+        .map((item) => {
+          const activeClass = item.id === activeId ? "active" : "";
+          return `
+            <div class="history-item ${activeClass}" data-id="${item.id}">
+              <strong>${item.label}</strong>
+              <span class="pill">${item.type}</span>
+              <div class="status">${new Date(item.fetchedAt).toLocaleString()}</div>
+            </div>
+          `;
+        })
+        .join("");
+    }
+
+    function updateLatest(snapshot) {
+      latestMeta.textContent = `${snapshot.label} • ${new Date(snapshot.fetchedAt).toLocaleString()}`;
+      latestRaw.textContent = JSON.stringify(snapshot.payload, null, 2);
+      renderTable(latestTable, snapshot.series);
+      renderChart(snapshot.series);
+    }
+
+    function buildSnapshot(payload, type) {
+      const series = normalizeSeries(payload);
+      return {
+        id: `${type}-${Date.now()}`,
+        type,
+        label: type.replace("-", " ").toUpperCase(),
+        fetchedAt: new Date().toISOString(),
+        payload,
+        series,
+      };
+    }
+
+    async function fetchData(type) {
+      const config = loadConfig();
+      const url = getUrlForType(type, config);
+      if (!url) {
+        fetchStatus.textContent = "Missing URL for this dataset. Update configuration.";
+        fetchHints.textContent = "";
+        return;
+      }
+      let headers;
+      try {
+        headers = parseHeaders(config.extraHeaders, config.apiKey);
+      } catch (error) {
+        fetchStatus.textContent = error.message;
+        fetchHints.textContent = "";
+        return;
+      }
+      fetchStatus.textContent = `Requesting ${type}...`;
+      fetchHints.textContent = "";
+
+      try {
+        const response = await fetch(url, { headers });
+        if (!response.ok) {
+          const statusText = response.status === 404
+            ? "Not found. Check the URL, time range, and credentials."
+            : `API returned ${response.status}.`;
+          throw new Error(statusText);
+        }
+        const contentType = response.headers.get("content-type") || "";
+        let payload;
+        if (contentType.includes("text/csv")) {
+          payload = await response.text();
+        } else {
+          try {
+            payload = await response.json();
+          } catch (error) {
+            payload = await response.text();
+          }
+        }
+        const snapshot = buildSnapshot(payload, type);
+        history.push(snapshot);
+        saveHistory(history);
+        renderHistory(snapshot.id);
+        updateLatest(snapshot);
+        fetchStatus.textContent = `Loaded ${type} successfully.`;
+        fetchHints.textContent = "";
+      } catch (error) {
+        fetchStatus.textContent = `Request failed: ${error.message}`;
+        fetchHints.textContent =
+          "Tip: Use the sample data button to confirm the UI works, then verify your Enappsys URL and credentials.";
+      }
+    }
+
+    function loadSampleData() {
+      const snapshot = {
+        id: `sample-${Date.now()}`,
+        type: "sample",
+        label: "SAMPLE DATA",
+        fetchedAt: new Date().toISOString(),
+        payload: { sample: true, series: sampleSeries },
+        series: sampleSeries,
+      };
+      history.push(snapshot);
+      saveHistory(history);
+      renderHistory(snapshot.id);
+      updateLatest(snapshot);
+      fetchStatus.textContent = "Loaded sample data.";
+      fetchHints.textContent = "Replace the sample by entering your Enappsys endpoints.";
+    }
+
+    function handleHistoryClick(event) {
+      const item = event.target.closest(".history-item");
+      if (!item) {
+        return;
+      }
+      const id = item.dataset.id;
+      const selected = history.find((entry) => entry.id === id);
+      if (!selected) {
+        return;
+      }
+      updateLatest(selected);
+      renderHistory(id);
+
+      const previous = [...history]
+        .reverse()
+        .find((entry) => entry.type === selected.type && entry.id !== selected.id);
+      if (previous) {
+        diffMeta.textContent = `Comparing to ${new Date(previous.fetchedAt).toLocaleString()}`;
+        renderDiff(selected, previous);
+      } else {
+        diffMeta.textContent = "No earlier snapshot for this type.";
+        diffTable.innerHTML = "";
+      }
+    }
+
+    document.getElementById("saveConfig").addEventListener("click", () => {
+      const config = getConfigFromInputs();
+      saveConfig(config);
+      configStatus.textContent = "Configuration saved locally.";
+    });
+
+    document.getElementById("clearHistory").addEventListener("click", () => {
+      history.length = 0;
+      saveHistory(history);
+      renderHistory();
+      latestTable.innerHTML = "";
+      latestRaw.textContent = "No data loaded yet.";
+      latestMeta.textContent = "";
+      diffTable.innerHTML = "";
+      diffMeta.textContent = "";
+      fetchStatus.textContent = "History cleared.";
+    });
+
+    document.querySelectorAll("button[data-type]").forEach((button) => {
+      button.addEventListener("click", () => fetchData(button.dataset.type));
+    });
+
+    document.getElementById("loadSample").addEventListener("click", loadSampleData);
+
+    historyList.addEventListener("click", handleHistoryClick);
+
+    updateConfigInputs();
+    renderHistory();
+  </script>
+</body>
+</html>
